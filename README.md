@@ -1,0 +1,1 @@
+https://unscrambleit.net/letterboxed-nyt/
