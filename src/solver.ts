@@ -1,10 +1,10 @@
-const prompt = require('prompt');
-const fs = require('fs');
-const readline = require('readline');
+import prompt from 'prompt';
+import * as fs from 'fs';
+import readline from 'readline';
 
 const letters = new Array(26).fill(0).map((_, i) => String.fromCharCode(97 + i));
 
-function readLines(filename, startLine, numLines, lineHandler, closeHandler) {
+function readLines(filename: string, startLine: number, numLines: number, lineHandler: (line: string, lineNum: number) => any, closeHandler: (...params: any[]) => any) {
   let lineNum = 0;
 
   const rl = readline.createInterface({
@@ -22,7 +22,7 @@ function readLines(filename, startLine, numLines, lineHandler, closeHandler) {
   rl.on('close', closeHandler);
 }
 
-const starters = {};
+const starters: Record<string, any> = {};
 
 async function prepareStarters() {
   await new Promise((resolve) => {
@@ -49,10 +49,10 @@ async function prepareStarters() {
   })
 }
 
-async function getWordsStartingWith(starter) {
+async function getWordsStartingWith(starter: string) {
   const truncatedStarter = starter.slice(0, 2);
   const starterValues = Object.values(starters).sort((a, b) => a - b);
-  const words = await new Promise((resolve) => {
+  const words: string[] = await new Promise((resolve) => {
     let startLine;
     let endLine;
     if (truncatedStarter.length == 2) {
@@ -69,11 +69,11 @@ async function getWordsStartingWith(starter) {
       endLine = starters[nextLetter];
     }
     const numLines = endLine - startLine + 1;
-    const words = [];
+    const wordsToReturn: string[] = [];
     readLines('wordlist.10000.txt', startLine, numLines, (line) => {
-      words.push(line);
+      wordsToReturn.push(line);
     }, () => {
-      resolve(words);
+      resolve(wordsToReturn);
     });
   });
   if (starter.length <= 2) {
@@ -84,21 +84,11 @@ async function getWordsStartingWith(starter) {
 
 const sides = new Array(4).fill("");
 
-async function getSides() {
-  prompt.start();
-  await new Promise((resolve) => {
-    prompt.get(['side 1', 'side 2', 'side 3', 'side 4'], (err, result) => {
-      if (err) {
-        console.log('Error:', err);
-        return;
-      }
-      sides[0] = result['side 1'];
-      sides[1] = result['side 2'];
-      sides[2] = result['side 3'];
-      sides[3] = result['side 4'];
-      resolve(true);
-    });
-  });
+async function formatSides(inputSides: string[]) {
+  sides[0] = inputSides[0];
+  sides[1] = inputSides[1];
+  sides[2] = inputSides[2];
+  sides[3] = inputSides[3];
   for (let index = 0; index < sides.length; index++) {
     sides[index] = sides[index].replace(/\s/g, '').toLowerCase().split('');
     if (sides[index].length !== 3) {
@@ -107,7 +97,7 @@ async function getSides() {
   }
 }
 
-const possibleWords = [];
+const possibleWords: string[] = [];
 
 async function getAllPossibleWords() {
   const routes = sides.flat();
@@ -130,12 +120,12 @@ async function getAllPossibleWords() {
   }
 }
 
-let wordCombos = [];
+let wordCombos: string[][] = [];
 
 async function getWordCombos() {
   const routes = [...possibleWords.map((word) => [word])];
   while (routes.length > 0) {
-    const route = routes.shift();
+    const route: string[] = routes.shift() as string[];
     const lettersCovered = new Set(route.join('').split(''));
     if (lettersCovered.size == 12) {
       // console.log('Found word combo:', route);
@@ -178,32 +168,16 @@ async function showMore() {
   });
 }
 
-async function solve() {
+export async function solve(inputSides: string[]) {
   console.log('Preparing starters...');
   await prepareStarters();
-  console.log('Getting sides...');
-  await getSides();
+  console.log('Formatting sides...');
+  await formatSides(inputSides);
   console.log('Finding all possible words...');
   await getAllPossibleWords();
   console.log('Getting word combos...');
   await getWordCombos();
   console.log('Presenting results...');
-  let startIndex = 0;
-  let batch = wordCombos.slice(startIndex, startIndex + 10);
-  while (batch.length > 0) {
-    console.log('Batch:', startIndex / 10 + 1);
-    console.log('-------------------');
-    batch.forEach((combo) => {
-      console.log(combo.join(', '));
-    });
-    startIndex += 10;
-    batch = wordCombos.slice(startIndex, startIndex + 10);
-    const shouldShowMore = await showMore();
-    if (!shouldShowMore) {
-      break;
-    }
-  }
   console.log('Mission accomplished. Have a nice day! :)');
+  return wordCombos;
 }
-
-solve();
