@@ -35,6 +35,8 @@ function App() {
   return (
     <>
       <h1>Letterboxed Solver</h1>
+      <a href="https://www.nytimes.com/puzzles/letter-boxed">Play Letterboxed</a>
+      <a href="https://unscrambleit.net/letterboxed-nyt/">Play Letterboxed Unlimited</a>
       <div className="card">
         <input
           type="text"
