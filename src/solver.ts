@@ -1,32 +1,30 @@
-import prompt from 'prompt';
-import * as fs from 'fs';
-import readline from 'readline';
+const wordListSource = 'https://gist.githubusercontent.com/pf274/0ea2c3a76dee34480179100cdba6b501/raw/eec4a7dc32abeab3c27edb0952a69265f2b8d8aa/wordlist.txt';
+
+let wordList: string;
+
+async function getWordList() {
+  if (wordList) {
+    return;
+  }
+  wordList = await fetch(wordListSource).then(response => response.text());
+  console.log('Word list loaded.');
+}
 
 const letters = new Array(26).fill(0).map((_, i) => String.fromCharCode(97 + i));
 
-function readLines(filename: string, startLine: number, numLines: number, lineHandler: (line: string, lineNum: number) => any, closeHandler: (...params: any[]) => any) {
-  let lineNum = 0;
-
-  const rl = readline.createInterface({
-    input: fs.createReadStream(filename),
-    crlfDelay: Infinity
-  });
-
-  rl.on('line', (line) => {
-    if (lineNum >= startLine && lineNum < startLine + numLines + 1) {
-      lineHandler(line, lineNum);
-    }
-    lineNum++;
-  });
-
-  rl.on('close', closeHandler);
+function readLines(content: string, startLine: number, numLines: number, lineHandler: (line: string, lineNum: number) => any, closeHandler: (...params: any[]) => any) {
+  const lines = content.split('\n');
+  for (let lineNum = startLine; lineNum < startLine + numLines && lineNum < lines.length; lineNum++) {
+    lineHandler(lines[lineNum], lineNum);
+  }
+  closeHandler();
 }
 
 const starters: Record<string, any> = {};
 
 async function prepareStarters() {
   await new Promise((resolve) => {
-    readLines('wordlist.10000.txt', 0, 274411, (line, lineNum) => {
+    readLines(wordList, 0, 274411, (line, lineNum) => {
       const word = line.trim();
       if (word.length == 1) {
         if (!starters[word.charAt(0)]) {
@@ -68,9 +66,9 @@ async function getWordsStartingWith(starter: string) {
       const nextLetter = letters[letters.indexOf(starter.charAt(0)) + 1];
       endLine = starters[nextLetter];
     }
-    const numLines = endLine - startLine + 1;
+    const numLines = endLine - startLine;
     const wordsToReturn: string[] = [];
-    readLines('wordlist.10000.txt', startLine, numLines, (line) => {
+    readLines(wordList, startLine, numLines, (line) => {
       wordsToReturn.push(line);
     }, () => {
       resolve(wordsToReturn);
@@ -140,44 +138,29 @@ async function getWordCombos() {
     const nextRoutes = availableWords.map((word) => [...route, word]);
     routes.unshift(...nextRoutes);
   }
-  wordCombos = wordCombos.sort((a, b) => a.length - b.length);
-}
-
-async function showMore() {
-  return new Promise((resolve, reject) => {
-    prompt.start();
-
-    const schema = {
-      properties: {
-        continue: {
-          description: 'Do you want to see more results? (yes/no)',
-          pattern: /^(yes|no)$/,
-          message: 'Please answer with "yes" or "no".',
-          required: true
-        }
-      }
-    };
-
-    prompt.get(schema, (err, result) => {
-      if (err) {
-        reject(err);
-      } else {
-        resolve(result.continue === 'yes');
-      }
-    });
+  wordCombos = wordCombos.sort((a, b) => {
+    if (a.length !== b.length) {
+      return a.length - b.length;
+    }
+    const minALength = Math.min(...a.map(word => word.length));
+    const minBLength = Math.min(...b.map(word => word.length));
+    return minBLength - minALength;
   });
 }
 
-export async function solve(inputSides: string[]) {
-  console.log('Preparing starters...');
+export async function solve(inputSides: string[], progressHandler: (message: string) => void, resultHandler: (result: string[][]) => void) {
+  await getWordList();
+  progressHandler('Preparing starters...');
   await prepareStarters();
-  console.log('Formatting sides...');
+  progressHandler('Formatting sides...');
   await formatSides(inputSides);
-  console.log('Finding all possible words...');
-  await getAllPossibleWords();
-  console.log('Getting word combos...');
-  await getWordCombos();
-  console.log('Presenting results...');
-  console.log('Mission accomplished. Have a nice day! :)');
-  return wordCombos;
+  progressHandler('Finding all possible words...');
+  getAllPossibleWords().then(() => {
+    console.log('Getting word combos...');
+    getWordCombos().then(() => {
+      console.log('Presenting results...');
+      console.log('Mission accomplished. Have a nice day! :)');
+      resultHandler(wordCombos);
+    })
+  })
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import './App.css'
 import {solve} from './solver';
 
@@ -9,14 +9,27 @@ function App() {
   const [side4, setSide4] = useState('')
   const [hasChanged, setHasChanged] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
   const [solutions, setSolutions] = useState<string[][]>([]);
+
+  useEffect(() => {
+    if (hasChanged) {
+      setSolutions([]);
+    }
+  }, [hasChanged])
 
   async function runSolver() {
     setLoading(true);
-    const newSolutions = await solve([side1, side2, side3, side4]);
-    setSolutions(newSolutions);
-    setHasChanged(false);
-    setLoading(false);
+    try {
+      solve([side1, side2, side3, side4], (newMessage) => setMessage(newMessage), (newSolutions) => setSolutions(newSolutions)).then((newSolutions) => {
+        setHasChanged(false);
+        setLoading(false);
+      }).catch((err) => {
+        console.error(err);
+      });
+    } catch (err) {
+      console.error(err);
+    }
   }
 
   return (
@@ -71,13 +84,12 @@ function App() {
       <button onClick={runSolver}>Solve</button>
       {!loading && !hasChanged && <div>
         <h2>Solutions:</h2>
-        <ul>
-          {solutions.map((solution, index) => (
-            <li key={index}>{solution.join(', ')}</li>
+          {solutions.slice(0, 100).map((solution, index) => (
+            <p key={index}>{solution.join(', ')}</p>
           ))}
-        </ul>
       </div>}
       {loading && <div>Loading...</div>}
+      {loading && <div>{message}</div>}
     </>
   )
 }
