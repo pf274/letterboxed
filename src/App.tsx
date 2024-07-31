@@ -21,7 +21,7 @@ function App() {
   async function runSolver() {
     setLoading(true);
     try {
-      solve([side1, side2, side3, side4], (newMessage) => setMessage(newMessage), (newSolutions) => setSolutions(newSolutions)).then((newSolutions) => {
+      solve([side1, side2, side3, side4], (newMessage) => setMessage(newMessage), (newSolutions) => setSolutions(newSolutions)).then(() => {
         setHasChanged(false);
         setLoading(false);
       }).catch((err) => {

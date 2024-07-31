@@ -11,4 +11,5 @@ export default defineConfig({
     }),
   ],
   assetsInclude: ['**/*.txt'],
+  base: '/letterboxed'
 })
