@@ -1,88 +1,63 @@
 const wordListSource = 'https://gist.githubusercontent.com/pf274/0ea2c3a76dee34480179100cdba6b501/raw/eec4a7dc32abeab3c27edb0952a69265f2b8d8aa/wordlist.txt';
 
-let wordList: string;
-
 async function getWordList() {
-  if (wordList) {
-    return;
-  }
-  wordList = await fetch(wordListSource).then(response => response.text());
-  console.log('Word list loaded.');
+  const wordList: string[] = (await fetch(wordListSource).then(response => response.text())).split('\n');
+  return wordList;
 }
 
 const letters = new Array(26).fill(0).map((_, i) => String.fromCharCode(97 + i));
 
-function readLines(content: string, startLine: number, numLines: number, lineHandler: (line: string, lineNum: number) => any, closeHandler: (...params: any[]) => any) {
-  const lines = content.split('\n');
-  for (let lineNum = startLine; lineNum < startLine + numLines && lineNum < lines.length; lineNum++) {
-    lineHandler(lines[lineNum], lineNum);
-  }
-  closeHandler();
-}
-
-const starters: Record<string, any> = {};
-
-async function prepareStarters() {
-  await new Promise((resolve) => {
-    readLines(wordList, 0, 274411, (line, lineNum) => {
-      const word = line.trim();
-      if (word.length == 1) {
-        if (!starters[word.charAt(0)]) {
-          starters[word.charAt(0)] = lineNum;
-        }
-        return;
-      } else if (word.length >= 2) {
-        if (!starters[word.charAt(0)]) {
-          starters[word.charAt(0)] = lineNum;
-        }
-        const wordStart = word.slice(0, 2);
-        if (!starters[wordStart]) {
-          starters[wordStart] = lineNum;
-        }
-        return;
+async function prepareStarters(wordList: string[]) {
+  const starters: Record<string, any> = {};
+  for (let i = 0; i < wordList.length; i++) {
+    const word = wordList[i].trim();
+    if (word.length == 1) {
+      if (!starters[word.charAt(0)]) {
+        starters[word.charAt(0)] = i;
       }
-    }, () => {
-      resolve(true);
-    });
-  })
+      continue;
+    } else if (word.length >= 2) {
+      if (!starters[word.charAt(0)]) {
+        starters[word.charAt(0)] = i;
+      }
+      const wordStart = word.slice(0, 2);
+      if (!starters[wordStart]) {
+        starters[wordStart] = i;
+      }
+      continue;
+    }
+  }
+  return starters;
 }
 
-async function getWordsStartingWith(starter: string) {
+async function getWordsStartingWith(starter: string, starters: Record<string, any>, wordList: string[]) {
   const truncatedStarter = starter.slice(0, 2);
   const starterValues = Object.values(starters).sort((a, b) => a - b);
-  const words: string[] = await new Promise((resolve) => {
-    let startLine;
-    let endLine;
-    if (truncatedStarter.length == 2) {
-      startLine = starters[truncatedStarter] ? starters[truncatedStarter] : starters[starter.charAt(0)];
-      const startIndex = starterValues.indexOf(startLine);
-      let endIndex = startIndex;
-      do {
-        endIndex++;
-        endLine = starterValues[endIndex];
-      } while (endLine == startLine);
-    } else {
-      startLine = starters[starter.charAt(0)];
-      const nextLetter = letters[letters.indexOf(starter.charAt(0)) + 1];
-      endLine = starters[nextLetter];
-    }
-    const numLines = endLine - startLine;
-    const wordsToReturn: string[] = [];
-    readLines(wordList, startLine, numLines, (line) => {
-      wordsToReturn.push(line);
-    }, () => {
-      resolve(wordsToReturn);
-    });
-  });
-  if (starter.length <= 2) {
-    return words;
+  let startLine;
+  let endLine;
+  if (truncatedStarter.length == 2) {
+    startLine = starters[truncatedStarter] ? starters[truncatedStarter] : starters[starter.charAt(0)];
+    const startIndex = starterValues.indexOf(startLine);
+    let endIndex = startIndex;
+    do {
+      endIndex++;
+      endLine = starterValues[endIndex];
+    } while (endLine == startLine);
+  } else {
+    startLine = starters[starter.charAt(0)];
+    const nextLetter = letters[letters.indexOf(starter.charAt(0)) + 1];
+    endLine = starters[nextLetter];
   }
-  return words.filter(word => word.startsWith(starter));
+  const wordsToReturn: string[] = wordList.slice(startLine, endLine + 1);
+  if (starter.length <= 2) {
+    return wordsToReturn;
+  }
+  return wordsToReturn.filter(word => word.startsWith(starter));
 }
 
-const sides = new Array(4).fill("");
 
 async function formatSides(inputSides: string[]) {
+  const sides = new Array(4).fill("");
   sides[0] = inputSides[0];
   sides[1] = inputSides[1];
   sides[2] = inputSides[2];
@@ -93,18 +68,18 @@ async function formatSides(inputSides: string[]) {
       throw new Error('Invalid input. Each side must have three letters. Enter like this: \'wvs\'');
     }
   }
+  return sides;
 }
 
-const possibleWords: string[] = [];
-
-async function getAllPossibleWords() {
+async function getAllPossibleWords(starters: Record<string, any>, sides: string[][], wordList: string[]) {
+  const possibleWords: string[] = [];
   const routes = sides.flat();
   while (routes.length > 0) {
-    const route = routes.shift();
+    const route = routes.shift()!;
     if (route.length <= 2) {
       // console.log('Checking words starting with:', route);
     }
-    const words = await getWordsStartingWith(route);
+    const words = await getWordsStartingWith(route, starters, wordList);
     if (words.includes(route) && route.length >= 3) {
       // console.log('Found word:', route);
       possibleWords.push(route);
@@ -116,11 +91,12 @@ async function getAllPossibleWords() {
       routes.unshift(...nextRoutes);
     }
   }
+  return possibleWords;
 }
 
-let wordCombos: string[][] = [];
 
-async function getWordCombos() {
+async function getWordCombos(possibleWords: string[]) {
+  let wordCombos: string[][] = [];
   const routes = [...possibleWords.map((word) => [word])];
   while (routes.length > 0) {
     const route: string[] = routes.shift() as string[];
@@ -146,21 +122,20 @@ async function getWordCombos() {
     const minBLength = Math.min(...b.map(word => word.length));
     return minBLength - minALength;
   });
+  return wordCombos;
 }
 
 export async function solve(inputSides: string[], progressHandler: (message: string) => void, resultHandler: (result: string[][]) => void) {
-  await getWordList();
+  const wordList = await getWordList();
   progressHandler('Preparing starters...');
-  await prepareStarters();
+  const starters = await prepareStarters(wordList);
   progressHandler('Formatting sides...');
-  await formatSides(inputSides);
+  const sides = await formatSides(inputSides);
   progressHandler('Finding all possible words...');
-  getAllPossibleWords().then(() => {
-    console.log('Getting word combos...');
-    getWordCombos().then(() => {
-      console.log('Presenting results...');
-      console.log('Mission accomplished. Have a nice day! :)');
-      resultHandler(wordCombos);
-    })
-  })
+  const words = await getAllPossibleWords(starters, sides, wordList);
+  console.log('Getting word combos...');
+  const wordCombos = await getWordCombos(words);
+  console.log('Presenting results...');
+  console.log('Mission accomplished. Have a nice day! :)');
+  resultHandler(wordCombos);
 }
