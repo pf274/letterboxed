@@ -107,31 +107,6 @@ async function getWordTrie() {
   return wordTrie;
 }
 
-const letters = new Array(26).fill(0).map((_, i) => String.fromCharCode(97 + i));
-
-async function prepareStarters(wordList: string[]) {
-  const starters: Record<string, any> = {};
-  for (let i = 0; i < wordList.length; i++) {
-    const word = wordList[i];
-    if (word.length == 1) {
-      if (!starters[word.charAt(0)]) {
-        starters[word.charAt(0)] = i;
-      }
-      continue;
-    } else if (word.length >= 2) {
-      if (!starters[word.charAt(0)]) {
-        starters[word.charAt(0)] = i;
-      }
-      const wordStart = word.slice(0, 2);
-      if (!starters[wordStart]) {
-        starters[wordStart] = i;
-      }
-      continue;
-    }
-  }
-  return starters;
-}
-
 async function getWordsStartingWith(starter: string, wordTrie: WordNode) {
   const wordNode = wordTrie.getNode(starter);
   if (wordNode) {
