@@ -12,6 +12,7 @@ function App() {
   const [solutions, setSolutions] = useState<string[][]>([]);
   const [solutionIndex, setSolutionIndex] = useState(0);
   const [wordsToExclude, setWordsToExclude] = useState('');
+  const [wordsToInclude, setWordsToInclude] = useState('');
 
   function handleUpdateExclude(event: React.ChangeEvent<HTMLInputElement>) {
     const newWordsToExclude = event.target.value.toLowerCase().replace(/[^a-z ]/g, '');
@@ -19,8 +20,15 @@ function App() {
     setSolutionIndex(0);
   }
 
+  function handleUpdateInclude(event: React.ChangeEvent<HTMLInputElement>) {
+    const newWordsToInclude = event.target.value.toLowerCase().replace(/[^a-z ]/g, '');
+    setWordsToInclude(newWordsToInclude);
+    setSolutionIndex(0);
+  }
+
   function getSolutions() {
-    return solutions.filter((solution) => !solution.some((word) => wordsToExclude.split(' ').filter((segment) => segment.length > 0).includes(word)));
+    const notExcluded = solutions.filter((solution) => !solution.some((word) => wordsToExclude.split(' ').filter((segment) => segment.length > 0).includes(word)));
+    return notExcluded.filter((solution) => wordsToInclude.split(' ').filter((segment) => segment.length > 0).every((word) => solution.includes(word)));
   }
 
   useEffect(() => {
@@ -99,6 +107,7 @@ function App() {
       {!loading && !hasChanged && <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1em'}}>
         <h2 style={{margin: 0, marginTop: '1em'}}>Solutions:</h2>
           <TextField label="Words to exclude" value={wordsToExclude} onChange={handleUpdateExclude}></TextField>
+          <TextField label="Words to include" value={wordsToInclude} onChange={handleUpdateInclude}></TextField>
           <List dense={true} style={{backgroundColor: '#eeeeee', borderRadius: '1em'}}>
             {getSolutions().slice(solutionIndex, solutionIndex + 100).map((solution, index) => (
               <ListItem key={index}>{solution.join(', ')}</ListItem>
