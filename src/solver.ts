@@ -1,8 +1,110 @@
 const wordListSource = 'https://gist.githubusercontent.com/pf274/0ea2c3a76dee34480179100cdba6b501/raw/eec4a7dc32abeab3c27edb0952a69265f2b8d8aa/wordlist.txt';
 
-async function getWordList() {
-  const wordList: string[] = (await fetch(wordListSource).then(response => response.text())).split('\n');
-  return wordList;
+enum LETTER_TYPE {
+  a = 'a',
+  b = 'b',
+  c = 'c',
+  d = 'd',
+  e = 'e',
+  f = 'f',
+  g = 'g',
+  h = 'h',
+  i = 'i',
+  j = 'j',
+  k = 'k',
+  l = 'l',
+  m = 'm',
+  n = 'n',
+  o = 'o',
+  p = 'p',
+  q = 'q',
+  r = 'r',
+  s = 's',
+  t = 't',
+  u = 'u',
+  v = 'v',
+  w = 'w',
+  x = 'x',
+  y = 'y',
+  z = 'z',
+  empty = '',
+}
+
+class WordNode {
+  private wordSection: string;
+  public isWord: boolean;
+  private children: Record<LETTER_TYPE, WordNode>;
+  private constructor(wordSection: string, isWord: boolean) {
+    this.wordSection = wordSection;
+    this.isWord = isWord;
+    this.children = {} as Record<LETTER_TYPE, WordNode>;
+  }
+  addChild(childLetter: LETTER_TYPE, isWord: boolean) {
+    this.children[childLetter] = new WordNode(`${this.wordSection}${childLetter}`, isWord);
+  }
+  getChild(childLetter: LETTER_TYPE) {
+    return this.children[childLetter];
+  }
+  get word() {
+    if (this.isWord) {
+      return this.wordSection;
+    }
+    return null;
+  }
+  static createRoot() {
+    return new WordNode('', false);
+  }
+  hasNode(wordSection: string) {
+    let currentNode: WordNode = this;
+    for (let i = 0; i < wordSection.length; i++) {
+      const letter = wordSection.charAt(i) as LETTER_TYPE;
+      if (!currentNode.children[letter]) {
+        return false;
+      }
+      currentNode = currentNode.children[letter];
+    }
+    return true;
+  }
+  getNode(wordSection: string) {
+    let currentNode: WordNode = this;
+    for (let i = 0; i < wordSection.length; i++) {
+      const letter = wordSection.charAt(i) as LETTER_TYPE;
+      if (!currentNode.children[letter]) {
+        return null;
+      }
+      currentNode = currentNode.children[letter];
+    }
+    return currentNode;
+  }
+  getAllWords() {
+    let words: string[] = [];
+    if (this.isWord) {
+      words.push(this.wordSection);
+    }
+    for (const letter in this.children) {
+      words = [...words, ...this.children[letter as LETTER_TYPE].getAllWords()];
+    }
+    return words;
+  }
+}
+
+
+async function getWordTrie() {
+  const wordList: string[] = (await fetch(wordListSource).then(response => response.text())).split('\n').map((word) => word.trim().toLowerCase().replace(/[^a-z]/g, ''));
+  const wordTrie = WordNode.createRoot();
+  wordList.forEach((word) => {
+    let currentNode = wordTrie;
+    for (let i = 0; i < word.length; i++) {
+      const letter = word.charAt(i) as LETTER_TYPE;
+      if (!currentNode.getChild(letter)) {
+        currentNode.addChild(letter, i == word.length - 1);
+      } else if (i == word.length - 1) {
+        currentNode.getChild(letter).isWord = true;
+      }
+      currentNode = currentNode.getChild(letter);
+    }
+  });
+  return wordTrie;
 }
 
 const letters = new Array(26).fill(0).map((_, i) => String.fromCharCode(97 + i));
@@ -10,7 +112,7 @@ const letters = new Array(26).fill(0).map((_, i) => String.fromCharCode(97 + i))
 async function prepareStarters(wordList: string[]) {
   const starters: Record<string, any> = {};
   for (let i = 0; i < wordList.length; i++) {
-    const word = wordList[i].trim();
+    const word = wordList[i];
     if (word.length == 1) {
       if (!starters[word.charAt(0)]) {
         starters[word.charAt(0)] = i;
@@ -30,29 +132,13 @@ async function prepareStarters(wordList: string[]) {
   return starters;
 }
 
-async function getWordsStartingWith(starter: string, starters: Record<string, any>, wordList: string[]) {
-  const truncatedStarter = starter.slice(0, 2);
-  const starterValues = Object.values(starters).sort((a, b) => a - b);
-  let startLine;
-  let endLine;
-  if (truncatedStarter.length == 2) {
-    startLine = starters[truncatedStarter] ? starters[truncatedStarter] : starters[starter.charAt(0)];
-    const startIndex = starterValues.indexOf(startLine);
-    let endIndex = startIndex;
-    do {
-      endIndex++;
-      endLine = starterValues[endIndex];
-    } while (endLine == startLine);
+async function getWordsStartingWith(starter: string, wordTrie: WordNode) {
+  const wordNode = wordTrie.getNode(starter);
+  if (wordNode) {
+    return wordNode.getAllWords();
   } else {
-    startLine = starters[starter.charAt(0)];
-    const nextLetter = letters[letters.indexOf(starter.charAt(0)) + 1];
-    endLine = starters[nextLetter];
+    return [];
   }
-  const wordsToReturn: string[] = wordList.slice(startLine, endLine + 1);
-  if (starter.length <= 2) {
-    return wordsToReturn;
-  }
-  return wordsToReturn.filter(word => word.startsWith(starter));
 }
 
 
@@ -71,7 +157,7 @@ async function formatSides(inputSides: string[]) {
   return sides;
 }
 
-async function getAllPossibleWords(starters: Record<string, any>, sides: string[][], wordList: string[]) {
+async function getAllPossibleWords(sides: string[][], wordTrie: WordNode) {
   const possibleWords: string[] = [];
   const routes = sides.flat();
   while (routes.length > 0) {
@@ -79,7 +165,7 @@ async function getAllPossibleWords(starters: Record<string, any>, sides: string[
     if (route.length <= 2) {
       // console.log('Checking words starting with:', route);
     }
-    const words = await getWordsStartingWith(route, starters, wordList);
+    const words = await getWordsStartingWith(route, wordTrie);
     if (words.includes(route) && route.length >= 3) {
       // console.log('Found word:', route);
       possibleWords.push(route);
@@ -126,13 +212,11 @@ async function getWordCombos(possibleWords: string[]) {
 }
 
 export async function solve(inputSides: string[], progressHandler: (message: string) => void, resultHandler: (result: string[][]) => void) {
-  const wordList = await getWordList();
-  progressHandler('Preparing starters...');
-  const starters = await prepareStarters(wordList);
+  const wordTrie = await getWordTrie();
   progressHandler('Formatting sides...');
   const sides = await formatSides(inputSides);
   progressHandler('Finding all possible words...');
-  const words = await getAllPossibleWords(starters, sides, wordList);
+  const words = await getAllPossibleWords(sides, wordTrie);
   console.log('Getting word combos...');
   const wordCombos = await getWordCombos(words);
   console.log('Presenting results...');
