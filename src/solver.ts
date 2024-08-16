@@ -30,6 +30,8 @@ enum LETTER_TYPE {
   empty = '',
 }
 
+const numCombos = 10000;
+
 class WordNode {
   private wordSection: string;
   public isWord: boolean;
@@ -159,7 +161,7 @@ async function getAllPossibleWords(sides: string[][], wordTrie: WordNode) {
 async function getWordCombos(possibleWords: string[]) {
   let wordCombos: string[][] = [];
   const routes = [...possibleWords.map((word) => [word])];
-  while (routes.length > 0 && wordCombos.length < 1000) {
+  while (routes.length > 0 && wordCombos.length < numCombos * 3) {
     const route: string[] = routes.shift() as string[];
     const lettersCovered = new Set(route.join('').split(''));
     if (lettersCovered.size == 12) {
@@ -193,5 +195,6 @@ export async function solve(inputSides: string[]) {
   const wordCombos = await getWordCombos(words);
   console.log('Presenting results...');
   console.log('Mission accomplished. Have a nice day! :)');
-  return wordCombos;
+  const combosToReturn = wordCombos.length <= numCombos ? wordCombos : [...wordCombos.slice(0, Math.floor(numCombos / 2)), ...wordCombos.slice(wordCombos.length - Math.floor(numCombos / 2))];
+  return combosToReturn;
 }
