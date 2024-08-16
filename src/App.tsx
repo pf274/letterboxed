@@ -8,7 +8,6 @@ function App() {
   const sides = useRef<string[]>(['', '', '', '']);
   const [hasChanged, setHasChanged] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState('');
   const [solutions, setSolutions] = useState<string[][]>([]);
   const [solutionIndex, setSolutionIndex] = useState(0);
   const [wordsToExclude, setWordsToExclude] = useState('');
@@ -154,7 +153,6 @@ function App() {
           </div>
       </div>}
       {loading && <div>Loading...</div>}
-      {loading && <div>{message}</div>}
     </>
   )
 }
