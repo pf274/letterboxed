@@ -70,12 +70,10 @@ function App() {
   async function runSolver() {
     setLoading(true);
     try {
-      solve(sides.current, (newMessage) => setMessage(newMessage), (newSolutions) => setSolutions(newSolutions)).then(() => {
-        setHasChanged(false);
-        setLoading(false);
-      }).catch((err) => {
-        console.error(err);
-      });
+      const wordCombos = await solve(sides.current);
+      setSolutions(wordCombos);
+      setHasChanged(false);
+      setLoading(false);
     } catch (err) {
       console.error(err);
     }

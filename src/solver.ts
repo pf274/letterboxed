@@ -159,11 +159,10 @@ async function getAllPossibleWords(sides: string[][], wordTrie: WordNode) {
 async function getWordCombos(possibleWords: string[]) {
   let wordCombos: string[][] = [];
   const routes = [...possibleWords.map((word) => [word])];
-  while (routes.length > 0) {
+  while (routes.length > 0 && wordCombos.length < 1000) {
     const route: string[] = routes.shift() as string[];
     const lettersCovered = new Set(route.join('').split(''));
     if (lettersCovered.size == 12) {
-      // console.log('Found word combo:', route);
       wordCombos.push(route);
       continue;
     } else if (route.length >= 5) {
@@ -186,15 +185,13 @@ async function getWordCombos(possibleWords: string[]) {
   return wordCombos;
 }
 
-export async function solve(inputSides: string[], progressHandler: (message: string) => void, resultHandler: (result: string[][]) => void) {
+export async function solve(inputSides: string[]) {
   const wordTrie = await getWordTrie();
-  progressHandler('Formatting sides...');
   const sides = await formatSides(inputSides);
-  progressHandler('Finding all possible words...');
   const words = await getAllPossibleWords(sides, wordTrie);
   console.log('Getting word combos...');
   const wordCombos = await getWordCombos(words);
   console.log('Presenting results...');
   console.log('Mission accomplished. Have a nice day! :)');
-  resultHandler(wordCombos);
+  return wordCombos;
 }
